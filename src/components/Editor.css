@@ -1,32 +1,28 @@
 .editor {
   min-height: 100vh;
   background: #ffffff;
-  display: flex;
-  justify-content: center;
 }
 
 .editor .ProseMirror {
-  width: 100%;
   max-width: 42rem;
-  padding: 6rem 1.5rem;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  font-size: 1.125rem;
-  line-height: 1.75;
+  padding: 3rem 4rem;
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 1.0625rem;
+  line-height: 1.4;
   color: #1a1a1a;
   outline: none;
 }
 
 .editor .ProseMirror p {
-  margin: 0 0 0.75em;
+  margin: 0 0 0.5em;
 }
 
 .editor .ProseMirror h1,
 .editor .ProseMirror h2,
 .editor .ProseMirror h3 {
   font-weight: 600;
-  line-height: 1.3;
-  margin: 1.4em 0 0.5em;
+  line-height: 1.25;
+  margin: 1em 0 0.3em;
 }
 
 .editor .ProseMirror h1 {
@@ -48,7 +44,7 @@
 }
 
 .editor .ProseMirror blockquote {
-  margin: 0.75em 0;
+  margin: 0.5em 0;
   padding-left: 1em;
   border-left: 3px solid #e0e0e0;
   color: #555;
@@ -57,9 +53,8 @@
 .editor .ProseMirror code {
   background: #f2f2f2;
   border-radius: 0.25em;
-  padding: 0.15em 0.35em;
+  padding: 0.1em 0.35em;
   font-size: 0.9em;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 .editor .ProseMirror pre {
@@ -68,7 +63,7 @@
   border-radius: 0.5em;
   padding: 0.9em 1em;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 0.5em 0;
 }
 
 .editor .ProseMirror pre code {
@@ -81,23 +76,15 @@
 .editor .ProseMirror ul,
 .editor .ProseMirror ol {
   padding-left: 1.4em;
-  margin: 0.75em 0;
+  margin: 0.5em 0;
 }
 
 .editor .ProseMirror li {
-  margin: 0.25em 0;
+  margin: 0.15em 0;
 }
 
 .editor .ProseMirror hr {
   border: none;
   border-top: 1px solid #e0e0e0;
-  margin: 2em 0;
-}
-
-.editor .ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  color: #b3b3b3;
-  pointer-events: none;
+  margin: 1.25em 0;
 }

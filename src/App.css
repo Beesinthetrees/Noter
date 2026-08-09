@@ -1,3 +1,12 @@
+.drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  z-index: 100;
+}
+
 .db-status-panel {
   max-width: 32rem;
   margin: 4rem auto;
