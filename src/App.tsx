@@ -1,8 +1,8 @@
-import { DbStatusPanel } from './components/DbStatusPanel'
+import { Editor } from './components/Editor'
 import './App.css'
 
 function App() {
-  return <DbStatusPanel />
+  return <Editor />
 }
 
 export default App
