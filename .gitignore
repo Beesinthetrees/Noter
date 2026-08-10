@@ -5,6 +5,9 @@ node_modules
 dist
 dist-ssr
 
+# User-added fonts (see src-tauri/src/lib.rs fonts_dir)
+/Fonts
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

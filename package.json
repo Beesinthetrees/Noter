@@ -14,11 +14,12 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tiptap/extension-image": "^2.27.2",
     "@tiptap/pm": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
-    "dexie": "^4.0.11",
-    "dexie-react-hooks": "^1.1.7",
+    "marked": "^18.0.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

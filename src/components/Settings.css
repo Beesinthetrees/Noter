@@ -1,0 +1,146 @@
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.settings-panel {
+  width: 420px;
+  max-width: calc(100vw - 4rem);
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  font-family: var(--app-font);
+  font-size: 0.9rem;
+  color: #1a1a1a;
+}
+
+.settings-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+}
+
+.settings-panel__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #888;
+  font-size: 1rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+}
+
+.settings-panel__close:hover {
+  background: #eee;
+  color: #222;
+}
+
+.settings-panel__row {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-panel__label {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.settings-panel__value {
+  padding: 6px 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.settings-panel__section {
+  padding: 0 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #eee;
+  padding-top: 14px;
+}
+
+.settings-panel__keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-panel__keybind-label {
+  flex: 1;
+}
+
+.settings-panel__keybind-value {
+  font: inherit;
+  min-width: 110px;
+  text-align: center;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f5f5f5;
+  cursor: pointer;
+  color: #1a1a1a;
+}
+
+.settings-panel__keybind-value:hover {
+  background: #eee;
+}
+
+.settings-panel__keybind-value--recording {
+  background: #fff3cd;
+  border-color: #e0c060;
+  color: #7a5c00;
+}
+
+.settings-panel__inline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-panel__select {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #1a1a1a;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settings-panel__small-button {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fafafa;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-panel__small-button:hover {
+  background: #eee;
+}

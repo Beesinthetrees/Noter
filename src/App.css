@@ -3,28 +3,6 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 12px;
+  height: 36px;
   z-index: 100;
-}
-
-.db-status-panel {
-  max-width: 32rem;
-  margin: 4rem auto;
-  padding: 0 1.5rem;
-  font-family: system-ui, sans-serif;
-}
-
-.db-status-panel__error {
-  color: #b91c1c;
-}
-
-.db-status-panel__actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.db-status-panel__actions button {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
 }

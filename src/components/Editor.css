@@ -6,7 +6,7 @@
 .editor .ProseMirror {
   max-width: 42rem;
   padding: 3rem 4rem;
-  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
+  font-family: var(--app-font);
   font-size: 1.0625rem;
   line-height: 1.4;
   color: #1a1a1a;
@@ -87,4 +87,84 @@
   border: none;
   border-top: 1px solid #e0e0e0;
   margin: 1.25em 0;
+}
+
+.editor .ProseMirror .note-image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 0.5em 0;
+  line-height: 0;
+}
+
+.editor .ProseMirror .note-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25em;
+}
+
+.editor .ProseMirror .note-image.ProseMirror-selectednode img {
+  outline: 2px solid #9ec5ff;
+}
+
+.editor .ProseMirror .note-image__handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 1px solid #999;
+  border-radius: 2px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.editor .ProseMirror .note-image:hover .note-image__handle {
+  opacity: 1;
+}
+
+.editor .ProseMirror details {
+  margin: 0.4em 0;
+}
+
+.editor .ProseMirror summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  cursor: text;
+  list-style: none;
+}
+
+.editor .ProseMirror summary::-webkit-details-marker {
+  display: none;
+}
+
+.editor .ProseMirror .note-toggle__arrow {
+  cursor: pointer;
+  color: #999;
+  user-select: none;
+  flex-shrink: 0;
+  display: inline-block;
+  transition: transform 0.1s ease;
+}
+
+.editor .ProseMirror details[open] > summary .note-toggle__arrow {
+  transform: rotate(90deg);
+}
+
+.editor .ProseMirror .note-toggle__summary-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.editor .ProseMirror details > :not(summary) {
+  margin-left: 1.1em;
+}
+
+.editor .ProseMirror details > :last-child {
+  margin-bottom: 0;
 }

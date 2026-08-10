@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --app-font: 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
 }
 
 body {
