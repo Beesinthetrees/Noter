@@ -1,8 +1,8 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
-import { openFolder } from '../settings/fontCommands'
 import { FONT_PRESETS, useFont } from '../settings/FontContext'
 import { formatKeyEvent, useKeybinds, type Keybinds } from '../settings/KeybindsContext'
+import { openPath } from '../vault/commands'
 import { useVault } from '../vault/VaultContext'
 import './Settings.css'
 
@@ -74,7 +74,7 @@ function FontSection() {
   }
 
   const handleAddFonts = () => {
-    if (fontsDir) void openFolder(fontsDir).catch(() => {})
+    if (fontsDir) void openPath(fontsDir).catch(() => {})
   }
 
   return (

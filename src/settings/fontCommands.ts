@@ -12,7 +12,3 @@ export function getFontsDir(): Promise<string> {
 export function listFonts(): Promise<FontFile[]> {
   return invoke('list_fonts')
 }
-
-export function openFolder(path: string): Promise<void> {
-  return invoke('open_folder', { path })
-}

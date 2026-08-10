@@ -51,3 +51,18 @@ export function findEntry(entries: TreeEntry[], path: string): TreeEntry | undef
   }
   return undefined
 }
+
+export function isWithin(path: string, dir: string): boolean {
+  return path === dir || path.startsWith(`${dir}\\`) || path.startsWith(`${dir}/`)
+}
+
+export function flattenVisible(entries: TreeEntry[], expandedPaths: Set<string>): string[] {
+  const result: string[] = []
+  for (const entry of entries) {
+    result.push(entry.path)
+    if (entry.type === 'folder' && expandedPaths.has(entry.path)) {
+      result.push(...flattenVisible(entry.children, expandedPaths))
+    }
+  }
+  return result
+}

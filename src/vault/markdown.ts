@@ -119,6 +119,10 @@ function blockToMarkdown(node: JSONContent, listDepth: number): string {
         .map((item, i) => listItemToMarkdown(item, listDepth, `${start + i}.`))
         .join('\n')
     }
+    case 'taskList':
+      return (node.content ?? [])
+        .map((item) => listItemToMarkdown(item, listDepth, item.attrs?.checked ? '- [x]' : '- [ ]'))
+        .join('\n')
     case 'horizontalRule':
       return '---'
     default:
@@ -130,7 +134,7 @@ function listItemToMarkdown(item: JSONContent, listDepth: number, marker: string
   const indent = '  '.repeat(listDepth)
   const inner = (item.content ?? [])
     .map((child) =>
-      child.type === 'bulletList' || child.type === 'orderedList'
+      child.type === 'bulletList' || child.type === 'orderedList' || child.type === 'taskList'
         ? blockToMarkdown(child, listDepth + 1)
         : inlineToMarkdown(child.content ?? []),
     )
@@ -161,6 +165,9 @@ function inlineNodeToMarkdown(node: JSONContent): string {
         break
       case 'code':
         text = `\`${text}\``
+        break
+      case 'link':
+        text = `[${text}](${mark.attrs?.href ?? ''})`
         break
     }
   }

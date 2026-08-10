@@ -23,7 +23,7 @@ import {
   type TreeEntry,
 } from './commands'
 import { docToMarkdown, markdownToHtml } from './markdown'
-import { extractTitle, findEntry, findFirstNote, sanitizeFilename, TRASH_NAME } from './tree'
+import { extractTitle, findFirstNote, findEntry, isWithin, sanitizeFilename, TRASH_NAME } from './tree'
 
 const ROOT_DIR_KEY = 'noter:root-dir'
 const CURRENT_PATH_KEY = 'noter:current-note-path'
@@ -47,10 +47,6 @@ async function ensureTrash(root: string): Promise<void> {
   }
 }
 
-function isWithin(path: string, dir: string): boolean {
-  return path === dir || path.startsWith(`${dir}\\`) || path.startsWith(`${dir}/`)
-}
-
 interface VaultState {
   rootDir: string | null
   tree: TreeEntry[]
@@ -63,8 +59,9 @@ interface VaultState {
   newFolder: (parentDir?: string) => Promise<void>
   renamePath: (path: string, newName: string) => Promise<void>
   deletePath: (path: string, type: 'note' | 'folder') => Promise<void>
+  movePaths: (paths: string[], targetDir: string) => Promise<void>
   scheduleSave: () => void
-  flush: () => void
+  flush: () => Promise<void>
   changeRootDir: (newRoot: string) => Promise<void>
   saveAttachment: (bytes: number[], extension: string) => Promise<string>
 }
@@ -110,7 +107,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CURRENT_PATH_KEY, path)
   }, [])
 
-  const flush = useCallback(() => {
+  const flush = useCallback(async () => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     const editor = editorRef.current
     const path = currentPathRef.current
@@ -119,32 +116,32 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const json = editor.getJSON()
     const markdown = docToMarkdown(json)
     const title = extractTitle(json)
-    void writeNote(path, markdown)
+    await writeNote(path, markdown)
 
-    void (async () => {
-      const desiredName = sanitizeFilename(title)
-      const currentName = (await basename(path)).replace(/\.md$/, '')
-      if (desiredName === currentName) return
-      const dir = await dirname(path)
-      const newPath = await join(dir, `${desiredName}.md`)
-      try {
-        await renameEntry(path, newPath)
-        setCurrent(newPath)
-      } catch {
-        // name collision - keep the existing filename until it's unique
-      }
-      if (rootDir) await refreshTree(rootDir)
-    })()
+    const desiredName = sanitizeFilename(title)
+    const currentName = (await basename(path)).replace(/\.md$/, '')
+    if (desiredName === currentName) return
+    const dir = await dirname(path)
+    const newPath = await join(dir, `${desiredName}.md`)
+    try {
+      await renameEntry(path, newPath)
+      setCurrent(newPath)
+    } catch {
+      // name collision - keep the existing filename until it's unique
+    }
+    if (rootDir) await refreshTree(rootDir)
   }, [rootDir, refreshTree, setCurrent])
 
   const scheduleSave = useCallback(() => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
-    saveTimeout.current = setTimeout(flush, SAVE_DEBOUNCE_MS)
+    saveTimeout.current = setTimeout(() => {
+      void flush()
+    }, SAVE_DEBOUNCE_MS)
   }, [flush])
 
   const openNote = useCallback(
     async (path: string) => {
-      flush()
+      await flush()
       const content = await readNote(path)
       setCurrent(path)
       const root = rootDirRef.current
@@ -190,7 +187,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const newNote = useCallback(
     async (parentDir?: string) => {
       if (!rootDir) return
-      flush()
+      await flush()
       const parent = parentDir ?? activeFolder ?? rootDir
       const path = await uniquePath(parent, 'Untitled', '.md')
       await createNoteCmd(path)
@@ -269,9 +266,37 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [rootDir, refreshTree, openNote, setCurrent],
   )
 
+  const movePaths = useCallback(
+    async (paths: string[], targetDir: string) => {
+      if (!rootDir) return
+
+      for (const path of paths) {
+        const currentDir = await dirname(path)
+        if (currentDir === targetDir) continue
+        // Can't move a folder into itself or one of its own descendants.
+        if (isWithin(targetDir, path)) continue
+
+        const name = await basename(path)
+        const isNote = path.endsWith('.md')
+        let destPath = await join(targetDir, name)
+        if (await pathExists(destPath)) {
+          destPath = isNote
+            ? await uniquePath(targetDir, name.replace(/\.md$/, ''), '.md')
+            : await uniquePath(targetDir, name, '')
+        }
+
+        await renameEntry(path, destPath)
+        if (path === currentPathRef.current) setCurrent(destPath)
+      }
+
+      await refreshTree(rootDir)
+    },
+    [rootDir, refreshTree, setCurrent],
+  )
+
   const changeRootDir = useCallback(
     async (newRoot: string) => {
-      flush()
+      await flush()
       localStorage.setItem(ROOT_DIR_KEY, newRoot)
       setRoot(newRoot)
       setActiveFolder(null)
@@ -313,6 +338,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         newFolder,
         renamePath,
         deletePath,
+        movePaths,
         scheduleSave,
         flush,
         changeRootDir,

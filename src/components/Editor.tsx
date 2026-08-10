@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { matchesKeybind, useKeybinds } from '../settings/KeybindsContext'
+import { openPath } from '../vault/commands'
 import { editorExtensions } from '../vault/editorExtensions'
 import { useVault } from '../vault/VaultContext'
 import './Editor.css'
@@ -13,6 +14,10 @@ function readFileAsDataUri(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
+}
+
+function isTauri(): boolean {
+  return '__TAURI_INTERNALS__' in window
 }
 
 function extensionFromMime(mime: string): string {
@@ -65,6 +70,14 @@ export function Editor() {
 
         return true
       },
+      handleClick: (_view, _pos, event) => {
+        if (!(event.ctrlKey || event.metaKey)) return false
+        const link = (event.target as HTMLElement).closest('a')
+        if (!link) return false
+        event.preventDefault()
+        void openPath(link.href).catch(() => {})
+        return true
+      },
     },
   })
 
@@ -82,7 +95,6 @@ export function Editor() {
         newNote()
       } else if (matchesKeybind(event, keybinds.close)) {
         event.preventDefault()
-        flush()
         getCurrentWindow()
           .close()
           .catch(() => {})
@@ -94,7 +106,9 @@ export function Editor() {
       }
     }
 
-    const handleBeforeUnload = () => flush()
+    const handleBeforeUnload = () => {
+      void flush()
+    }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -103,6 +117,33 @@ export function Editor() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   }, [editor, newNote, flush, keybinds])
+
+  useEffect(() => {
+    if (!editor || !isTauri()) return
+
+    const win = getCurrentWindow()
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+
+    win
+      .onCloseRequested(async (event) => {
+        // Intercept every close path (Ctrl+W, Alt+F4, taskbar close) so the
+        // pending save always finishes writing to disk before the window dies.
+        event.preventDefault()
+        await flush()
+        unlisten?.()
+        await win.close()
+      })
+      .then((fn) => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [editor, flush])
 
   return (
     <div className="editor">

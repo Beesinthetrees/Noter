@@ -47,3 +47,7 @@ export function readBytes(path: string): Promise<number[]> {
 export function writeBytes(path: string, bytes: number[]): Promise<void> {
   return invoke('write_bytes', { path, bytes })
 }
+
+export function openPath(path: string): Promise<void> {
+  return invoke('open_path', { path })
+}

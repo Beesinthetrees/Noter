@@ -185,7 +185,7 @@ fn write_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_folder(path: String) -> Result<(), String> {
+fn open_path(path: String) -> Result<(), String> {
   open::that(path).map_err(|e| e.to_string())
 }
 
@@ -217,7 +217,7 @@ pub fn run() {
       list_fonts,
       read_bytes,
       write_bytes,
-      open_folder
+      open_path
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
