@@ -8,4 +8,12 @@ export default defineConfig({
       ignored: ['**/src-tauri/**'],
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        search: 'search.html',
+      },
+    },
+  },
 })

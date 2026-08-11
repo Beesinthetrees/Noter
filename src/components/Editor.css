@@ -4,7 +4,6 @@
 }
 
 .editor .ProseMirror {
-  max-width: 42rem;
   padding: 3rem 4rem;
   font-family: var(--app-font);
   font-size: 1.0625rem;

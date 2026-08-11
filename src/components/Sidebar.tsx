@@ -1,32 +1,236 @@
-import { useState, type MouseEvent } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react'
 import type { TreeEntry } from '../vault/commands'
-import { TRASH_NAME } from '../vault/tree'
+import { flattenVisible, TRASH_NAME } from '../vault/tree'
 import { useVault } from '../vault/VaultContext'
 import { Settings } from './Settings'
 import './Sidebar.css'
 
+const DRAG_MIME = 'application/x-noter-paths'
+
+type FolderEntry = TreeEntry & { type: 'folder' }
+
+interface SelectionState {
+  selectedPaths: Set<string>
+  isExpanded: (path: string) => boolean
+  toggleExpand: (path: string) => void
+  expand: (path: string) => void
+  selectOnly: (path: string) => void
+  toggleOne: (path: string) => void
+  selectRange: (path: string) => void
+  clearSelection: () => void
+  draggingPaths: string[] | null
+  setDraggingPaths: (paths: string[] | null) => void
+  dropTargetPath: string | null
+  setDropTargetPath: (path: string | null) => void
+}
+
+const SelectionContext = createContext<SelectionState | null>(null)
+
+function useSelection(): SelectionState {
+  const ctx = useContext(SelectionContext)
+  if (!ctx) throw new Error('useSelection must be used within SelectionProvider')
+  return ctx
+}
+
+function SelectionProvider({
+  notes,
+  trash,
+  children,
+}: {
+  notes: TreeEntry[]
+  trash: FolderEntry | undefined
+  children: ReactNode
+}) {
+  const { rootDir } = useVault()
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [draggingPaths, setDraggingPaths] = useState<string[] | null>(null)
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null)
+  const anchorRef = useRef<string | null>(null)
+
+  // Old folder paths are meaningless after switching vault root.
+  useEffect(() => {
+    anchorRef.current = null
+    setSelectedPaths(new Set())
+    setExpandedPaths(new Set())
+  }, [rootDir])
+
+  const isExpanded = useCallback((path: string) => expandedPaths.has(path), [expandedPaths])
+
+  const toggleExpand = useCallback((path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }, [])
+
+  const expand = useCallback((path: string) => {
+    setExpandedPaths((prev) => (prev.has(path) ? prev : new Set(prev).add(path)))
+  }, [])
+
+  const selectOnly = useCallback((path: string) => {
+    anchorRef.current = path
+    setSelectedPaths(new Set([path]))
+  }, [])
+
+  const toggleOne = useCallback((path: string) => {
+    anchorRef.current = path
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }, [])
+
+  const selectRange = useCallback(
+    (path: string) => {
+      const anchor = anchorRef.current
+      if (!anchor) {
+        selectOnly(path)
+        return
+      }
+      const visible = [
+        ...flattenVisible(notes, expandedPaths),
+        ...(trash ? flattenVisible([trash], expandedPaths) : []),
+      ]
+      const from = visible.indexOf(anchor)
+      const to = visible.indexOf(path)
+      if (from === -1 || to === -1) {
+        selectOnly(path)
+        return
+      }
+      const [start, end] = from <= to ? [from, to] : [to, from]
+      const range = new Set(visible.slice(start, end + 1))
+      // The Trash container itself is never selectable/draggable, even if a
+      // range happens to span across it.
+      if (trash) range.delete(trash.path)
+      setSelectedPaths(range)
+    },
+    [notes, trash, expandedPaths, selectOnly],
+  )
+
+  const clearSelection = useCallback(() => {
+    anchorRef.current = null
+    setSelectedPaths(new Set())
+  }, [])
+
+  return (
+    <SelectionContext.Provider
+      value={{
+        selectedPaths,
+        isExpanded,
+        toggleExpand,
+        expand,
+        selectOnly,
+        toggleOne,
+        selectRange,
+        clearSelection,
+        draggingPaths,
+        setDraggingPaths,
+        dropTargetPath,
+        setDropTargetPath,
+      }}
+    >
+      {children}
+    </SelectionContext.Provider>
+  )
+}
+
 export function Sidebar() {
   const [hovering, setHovering] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const { tree, setActiveFolder, newNote, newFolder } = useVault()
-
-  const visible = hovering || settingsOpen
+  const { tree } = useVault()
 
   const notes = tree.filter((entry) => !(entry.type === 'folder' && entry.name === TRASH_NAME))
   const trash = tree.find((entry) => entry.type === 'folder' && entry.name === TRASH_NAME) as
-    | (TreeEntry & { type: 'folder' })
+    | FolderEntry
     | undefined
 
   return (
     <>
       <div className="sidebar-trigger" onMouseEnter={() => setHovering(true)} />
+      <SelectionProvider notes={notes} trash={trash}>
+        <SidebarPanel hovering={hovering} setHovering={setHovering} notes={notes} trash={trash} />
+      </SelectionProvider>
+    </>
+  )
+}
+
+function SidebarPanel({
+  hovering,
+  setHovering,
+  notes,
+  trash,
+}: {
+  hovering: boolean
+  setHovering: (value: boolean) => void
+  notes: TreeEntry[]
+  trash: FolderEntry | undefined
+}) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { rootDir, setActiveFolder, newNote, newFolder, movePaths } = useVault()
+  const { clearSelection, dropTargetPath, setDropTargetPath, setDraggingPaths } = useSelection()
+
+  const visible = hovering || settingsOpen
+
+  const handleRootDragOver = (event: DragEvent) => {
+    event.preventDefault()
+    if (rootDir) setDropTargetPath(rootDir)
+  }
+
+  const handleRootDragLeave = (event: DragEvent) => {
+    const related = event.relatedTarget as Node | null
+    if (related && event.currentTarget.contains(related)) return
+    setDropTargetPath(null)
+  }
+
+  const handleRootDrop = async (event: DragEvent) => {
+    event.preventDefault()
+    setDropTargetPath(null)
+    setDraggingPaths(null)
+    const raw = event.dataTransfer.getData(DRAG_MIME)
+    if (!raw || !rootDir) return
+    const paths: string[] = JSON.parse(raw)
+    await movePaths(paths, rootDir)
+    clearSelection()
+  }
+
+  return (
+    <>
       <div
         className={`sidebar${visible ? ' sidebar--visible' : ''}`}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
+        // Catch-all: accept the drag anywhere in the sidebar so the browser's
+        // "not-allowed" cursor doesn't show over non-target rows/empty space.
+        // Rows with their own onDragOver/onDrop (folders, Trash, root label)
+        // still handle the actual move; dropping anywhere else just no-ops.
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => event.preventDefault()}
       >
         <div className="sidebar__header">
-          <span className="tree-row tree-row--root" onClick={() => setActiveFolder(null)}>
+          <span
+            className={`tree-row tree-row--root${dropTargetPath === rootDir ? ' tree-row--drop-target' : ''}`}
+            onClick={() => {
+              setActiveFolder(null)
+              clearSelection()
+            }}
+            onDragOver={handleRootDragOver}
+            onDragLeave={handleRootDragLeave}
+            onDrop={handleRootDrop}
+          >
             Notes
           </span>
           <button type="button" className="sidebar__action" title="New note" onClick={() => newNote()}>
@@ -48,7 +252,12 @@ export function Sidebar() {
           ))}
           {trash && (
             <>
-              <div className="sidebar__divider" />
+              <div
+                className="sidebar__divider"
+                onDragOver={handleRootDragOver}
+                onDragLeave={handleRootDragLeave}
+                onDrop={handleRootDrop}
+              />
               <TreeNode entry={trash} ancestorLines={[]} isLast isRoot isSystem />
             </>
           )}
@@ -91,12 +300,36 @@ function TreeNode({
   isRoot?: boolean
   isSystem?: boolean
 }) {
-  const { currentPath, activeFolder, setActiveFolder, openNote, renamePath, deletePath, newNote, newFolder } =
-    useVault()
-  const [expanded, setExpanded] = useState(false)
+  const {
+    currentPath,
+    activeFolder,
+    setActiveFolder,
+    openNote,
+    renamePath,
+    deletePath,
+    deletePaths,
+    newNote,
+    newFolder,
+    movePaths,
+  } = useVault()
+  const {
+    selectedPaths,
+    isExpanded,
+    toggleExpand,
+    expand,
+    selectOnly,
+    toggleOne,
+    selectRange,
+    clearSelection,
+    setDraggingPaths,
+    dropTargetPath,
+    setDropTargetPath,
+  } = useSelection()
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(entry.name)
 
+  const expanded = isExpanded(entry.path)
+  const isSelected = selectedPaths.has(entry.path)
   const childAncestorLines = isRoot ? [] : [...ancestorLines, !isLast]
 
   const commitRename = () => {
@@ -111,7 +344,71 @@ function TreeNode({
 
   const handleDelete = (event: MouseEvent) => {
     event.stopPropagation()
-    deletePath(entry.path, entry.type)
+    if (isSelected && selectedPaths.size > 1) {
+      deletePaths([...selectedPaths])
+    } else {
+      deletePath(entry.path, entry.type)
+    }
+  }
+
+  const handleRowClick = (event: MouseEvent) => {
+    // The Trash container itself is never selectable/draggable - only its
+    // contents are (see the equivalent guard in selectRange).
+    if (isSystem) {
+      toggleExpand(entry.path)
+      return
+    }
+    if (event.shiftKey) {
+      selectRange(entry.path)
+      return
+    }
+    if (event.ctrlKey || event.metaKey) {
+      toggleOne(entry.path)
+      return
+    }
+    selectOnly(entry.path)
+    if (entry.type === 'note') {
+      openNote(entry.path)
+    } else {
+      toggleExpand(entry.path)
+      setActiveFolder(entry.path)
+    }
+  }
+
+  const handleDragStart = (event: DragEvent) => {
+    const dragWholeSelection = isSelected && selectedPaths.size > 1
+    const paths = dragWholeSelection ? [...selectedPaths] : [entry.path]
+    if (!dragWholeSelection) selectOnly(entry.path)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData(DRAG_MIME, JSON.stringify(paths))
+    setDraggingPaths(paths)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingPaths(null)
+    setDropTargetPath(null)
+  }
+
+  const handleDragOver = (event: DragEvent) => {
+    event.preventDefault()
+    setDropTargetPath(entry.path)
+  }
+
+  const handleDragLeave = (event: DragEvent) => {
+    const related = event.relatedTarget as Node | null
+    if (related && event.currentTarget.contains(related)) return
+    setDropTargetPath(null)
+  }
+
+  const handleDrop = async (event: DragEvent) => {
+    event.preventDefault()
+    setDropTargetPath(null)
+    setDraggingPaths(null)
+    const raw = event.dataTransfer.getData(DRAG_MIME)
+    if (!raw) return
+    const paths: string[] = JSON.parse(raw)
+    await movePaths(paths, entry.path)
+    clearSelection()
   }
 
   const nameField = editing ? (
@@ -145,8 +442,11 @@ function TreeNode({
 
   if (entry.type === 'note') {
     const isActive = currentPath === entry.path
+    const classes = ['tree-row', isActive && 'tree-row--active', isSelected && 'tree-row--selected']
+      .filter(Boolean)
+      .join(' ')
     return (
-      <div className={`tree-row${isActive ? ' tree-row--active' : ''}`} onClick={() => openNote(entry.path)}>
+      <div className={classes} draggable onDragStart={handleDragStart} onDragEnd={handleDragEnd} onClick={handleRowClick}>
         <Rails ancestorLines={ancestorLines} isRoot={isRoot} isLast={isLast} />
         <div className="tree-row__content">
           {nameField}
@@ -161,15 +461,27 @@ function TreeNode({
   }
 
   const isActiveFolder = activeFolder === entry.path
+  const classes = [
+    'tree-row',
+    'tree-row--folder',
+    isActiveFolder && 'tree-row--active',
+    isSelected && 'tree-row--selected',
+    dropTargetPath === entry.path && 'tree-row--drop-target',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div>
       <div
-        className={`tree-row tree-row--folder${isActiveFolder ? ' tree-row--active' : ''}`}
-        onClick={() => {
-          setExpanded((value) => !value)
-          if (!isSystem) setActiveFolder(entry.path)
-        }}
+        className={classes}
+        draggable={!isSystem}
+        onDragStart={isSystem ? undefined : handleDragStart}
+        onDragEnd={isSystem ? undefined : handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={handleRowClick}
       >
         <Rails ancestorLines={ancestorLines} isRoot={isRoot} isLast={isLast} />
         <div className="tree-row__content">
@@ -184,7 +496,7 @@ function TreeNode({
                 onClick={(event) => {
                   event.stopPropagation()
                   newNote(entry.path)
-                  setExpanded(true)
+                  expand(entry.path)
                 }}
               >
                 +
@@ -196,7 +508,7 @@ function TreeNode({
                 onClick={(event) => {
                   event.stopPropagation()
                   newFolder(entry.path)
-                  setExpanded(true)
+                  expand(entry.path)
                 }}
               >
                 ⊞

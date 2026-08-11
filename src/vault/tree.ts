@@ -41,6 +41,19 @@ export function findFirstNote(entries: TreeEntry[]): (TreeEntry & { type: 'note'
   return undefined
 }
 
+export function flattenNotes(entries: TreeEntry[]): (TreeEntry & { type: 'note' })[] {
+  const result: (TreeEntry & { type: 'note' })[] = []
+  for (const entry of entries) {
+    if (entry.type === 'folder' && entry.name === TRASH_NAME) continue
+    if (entry.type === 'note') {
+      result.push(entry)
+      continue
+    }
+    result.push(...flattenNotes(entry.children))
+  }
+  return result
+}
+
 export function findEntry(entries: TreeEntry[], path: string): TreeEntry | undefined {
   for (const entry of entries) {
     if (entry.path === path) return entry

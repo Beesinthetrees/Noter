@@ -2,6 +2,13 @@ import { useEffect, useState, type ChangeEvent } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { FONT_PRESETS, useFont } from '../settings/FontContext'
 import { formatKeyEvent, useKeybinds, type Keybinds } from '../settings/KeybindsContext'
+import {
+  SIDEBAR_SIZE_DEFAULT,
+  SIDEBAR_SIZE_MAX,
+  SIDEBAR_SIZE_MIN,
+  SIDEBAR_SIZE_STEP,
+  useSidebarSize,
+} from '../settings/SidebarSizeContext'
 import { openPath } from '../vault/commands'
 import { useVault } from '../vault/VaultContext'
 import './Settings.css'
@@ -44,10 +51,13 @@ export function Settings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <FontSection />
+        <SidebarSizeSection />
         <div className="settings-panel__section">
           <span className="settings-panel__label">Keybinds</span>
           <KeybindRow label="Minimize window" action="minimize" value={keybinds.minimize} onChange={setKeybind} />
           <KeybindRow label="Close window" action="close" value={keybinds.close} onChange={setKeybind} />
+          <KeybindRow label="Open search" action="search" value={keybinds.search} onChange={setKeybind} />
+          <KeybindRow label="New note" action="newNote" value={keybinds.newNote} onChange={setKeybind} />
         </div>
       </div>
     </div>
@@ -91,6 +101,29 @@ function FontSection() {
         <button type="button" className="settings-panel__small-button" onClick={handleAddFonts}>
           Add fonts…
         </button>
+      </div>
+    </div>
+  )
+}
+
+function SidebarSizeSection() {
+  const { size, setSize } = useSidebarSize()
+  const percent = Math.round((size / SIDEBAR_SIZE_DEFAULT) * 100)
+
+  return (
+    <div className="settings-panel__section">
+      <span className="settings-panel__label">Sidebar size</span>
+      <div className="settings-panel__inline-row">
+        <input
+          type="range"
+          className="settings-panel__range"
+          min={SIDEBAR_SIZE_MIN}
+          max={SIDEBAR_SIZE_MAX}
+          step={SIDEBAR_SIZE_STEP}
+          value={size}
+          onChange={(event) => setSize(Number(event.target.value))}
+        />
+        <span className="settings-panel__value settings-panel__value--compact">{percent}%</span>
       </div>
     </div>
   )

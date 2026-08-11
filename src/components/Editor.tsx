@@ -48,6 +48,9 @@ export function Editor() {
     autofocus: 'end',
     onUpdate: () => scheduleSave(),
     editorProps: {
+      attributes: {
+        spellcheck: 'false',
+      },
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items
         if (!items) return false

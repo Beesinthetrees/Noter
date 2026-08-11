@@ -117,6 +117,16 @@
   gap: 6px;
 }
 
+.settings-panel__range {
+  flex: 1;
+}
+
+.settings-panel__value--compact {
+  flex: none;
+  min-width: 42px;
+  text-align: center;
+}
+
 .settings-panel__select {
   font: inherit;
   padding: 5px 8px;

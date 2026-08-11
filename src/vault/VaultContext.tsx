@@ -8,7 +8,9 @@ import {
   type ReactNode,
 } from 'react'
 import { basename, dirname, join } from '@tauri-apps/api/path'
+import { listen } from '@tauri-apps/api/event'
 import type { Editor } from '@tiptap/react'
+import { useGlobalShortcut, useKeybinds } from '../settings/KeybindsContext'
 import {
   createFolder as createFolderCmd,
   createNote as createNoteCmd,
@@ -22,11 +24,11 @@ import {
   writeNote,
   type TreeEntry,
 } from './commands'
+import { focusCurrentWindow } from './focusWindow'
 import { docToMarkdown, markdownToHtml } from './markdown'
+import { CURRENT_PATH_KEY, ROOT_DIR_KEY } from './storageKeys'
 import { extractTitle, findFirstNote, findEntry, isWithin, sanitizeFilename, TRASH_NAME } from './tree'
 
-const ROOT_DIR_KEY = 'noter:root-dir'
-const CURRENT_PATH_KEY = 'noter:current-note-path'
 const ATTACHMENTS_DIR_NAME = '.attachments'
 const SAVE_DEBOUNCE_MS = 400
 
@@ -59,6 +61,7 @@ interface VaultState {
   newFolder: (parentDir?: string) => Promise<void>
   renamePath: (path: string, newName: string) => Promise<void>
   deletePath: (path: string, type: 'note' | 'folder') => Promise<void>
+  deletePaths: (paths: string[]) => Promise<void>
   movePaths: (paths: string[], targetDir: string) => Promise<void>
   scheduleSave: () => void
   flush: () => Promise<void>
@@ -75,6 +78,7 @@ export function useVault(): VaultState {
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
+  const { keybinds } = useKeybinds()
   const [rootDir, setRootDir] = useState<string | null>(null)
   const [tree, setTree] = useState<TreeEntry[]>([])
   const [currentPath, setCurrentPath] = useState<string | null>(null)
@@ -152,6 +156,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [flush, setCurrent],
   )
 
+  // Cross-window handoff: the standalone search popup window
+  // (SearchPopup.tsx) can't call openNote directly - it's a separate
+  // JS/React runtime - so it emits this event and this window brings itself
+  // to front and opens the note on its behalf.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+    listen<{ path: string }>('noter://open-note', (event) => {
+      void openNote(event.payload.path).then(() => focusCurrentWindow())
+    }).then((fn) => {
+      if (cancelled) fn()
+      else unlisten = fn
+    })
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [openNote])
+
   useEffect(() => {
     if (initStarted.current) return
     initStarted.current = true
@@ -198,6 +221,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     },
     [rootDir, activeFolder, flush, refreshTree, setCurrent],
   )
+
+  // Registered at the OS level so it fires no matter what has focus - same
+  // mechanism as the search shortcut (SearchPopup.tsx), just registered
+  // directly here since creating a note needs no UI of its own: create it,
+  // then bring this window to front so the user can start typing.
+  const handleNewNoteShortcut = useCallback(() => {
+    void (async () => {
+      await newNote()
+      await focusCurrentWindow()
+    })()
+  }, [newNote])
+  useGlobalShortcut(keybinds.newNote, handleNewNoteShortcut)
 
   const newFolder = useCallback(
     async (parentDir?: string) => {
@@ -264,6 +299,62 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
     },
     [rootDir, refreshTree, openNote, setCurrent],
+  )
+
+  const deletePaths = useCallback(
+    async (paths: string[]) => {
+      if (!rootDir || paths.length === 0) return
+      const trashDir = await join(rootDir, TRASH_NAME)
+
+      const items = paths.map((path) => {
+        const found = findEntry(tree, path)
+        const type: 'note' | 'folder' = found?.type ?? (path.endsWith('.md') ? 'note' : 'folder')
+        return { path, type, alreadyTrashed: isWithin(path, trashDir) }
+      })
+
+      const anyAlreadyTrashed = items.some((item) => item.alreadyTrashed)
+      const anyFolderToTrash = items.some((item) => !item.alreadyTrashed && item.type === 'folder')
+      const count = items.length
+      const plural = count === 1 ? 'item' : 'items'
+
+      if (anyAlreadyTrashed) {
+        if (!window.confirm(`Permanently delete ${count} ${plural}? This cannot be undone.`)) return
+      } else if (anyFolderToTrash) {
+        if (!window.confirm(`Delete ${count} ${plural}?`)) return
+      }
+
+      for (const item of items) {
+        if (item.alreadyTrashed) {
+          await deleteEntryCmd(item.path)
+        } else {
+          const name = await basename(item.path)
+          const dest =
+            item.type === 'note'
+              ? await uniquePath(trashDir, name.replace(/\.md$/, ''), '.md')
+              : await uniquePath(trashDir, name, '')
+          await renameEntry(item.path, dest)
+        }
+      }
+
+      const current = currentPathRef.current
+      const affectsCurrent = !!current && items.some((item) => isWithin(current, item.path))
+
+      let t = await refreshTree(rootDir)
+
+      if (affectsCurrent) {
+        const next = findFirstNote(t)
+        if (next) {
+          await openNote(next.path)
+        } else {
+          const newPath = await uniquePath(rootDir, 'Untitled', '.md')
+          await createNoteCmd(newPath)
+          t = await refreshTree(rootDir)
+          setCurrent(newPath)
+          editorRef.current?.commands.setContent('')
+        }
+      }
+    },
+    [rootDir, tree, refreshTree, openNote, setCurrent],
   )
 
   const movePaths = useCallback(
@@ -338,6 +429,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         newFolder,
         renamePath,
         deletePath,
+        deletePaths,
         movePaths,
         scheduleSave,
         flush,
